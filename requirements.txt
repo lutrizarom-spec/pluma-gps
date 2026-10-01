@@ -1,0 +1,11 @@
+# Nivel 1: sin dependencias externas (SQLite + stdlib)
+# Nivel 2: flask
+flask
+# Nivel 3: JWT + password hashing + websockets
+PyJWT
+bcrypt
+flask-socketio
+# Nivel 3.3: PostgreSQL + Alembic
+psycopg2-binary
+alembic
+# Futuro Nivel 4: gateway TCP/UDP
