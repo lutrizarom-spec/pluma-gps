@@ -25,11 +25,11 @@ from model.cut_engine_command import CutEngineCommand
 from model.alert import Alert, AlertType, AlertStatus
 
 from api.auth import generate_token, require_auth, decode_token
-from api.ws import socketio, broadcast_telemetry
+from api.ws import socketio, broadcast_telemetry, ALLOWED_ORIGINS
 import jwt as jwt_lib
 
 app = Flask(__name__)
-socketio.init_app(app, cors_allowed_origins="*")
+socketio.init_app(app, cors_allowed_origins=ALLOWED_ORIGINS)
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pluma_gps.db")
 
