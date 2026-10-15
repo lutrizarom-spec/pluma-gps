@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${DB_USER:-pluma}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-pluma_secret_2026}
+      POSTGRES_DB: ${DB_NAME:-pluma_gps}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-pluma}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      DB_ENGINE: postgres
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-pluma_gps}
+      DB_USER: ${DB_USER:-pluma}
+      DB_PASSWORD: ${DB_PASSWORD:-pluma_secret_2026}
+      JWT_SECRET: ${JWT_SECRET:-pluma-gps-production-secret-key-change-me-2026}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head && python -m api.app"
+
+volumes:
+  pgdata:
