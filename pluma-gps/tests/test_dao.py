@@ -14,6 +14,8 @@ from dao.geofence_dao import GeofenceDao
 from dao.telemetry_dao import TelemetryDao
 from dao.command_dao import CutEngineCommandDao
 
+from tests.db_utils import list_tables
+
 from model.enums import PlanSubscription, HardwareLevel, CommandStatus
 from model.user import User
 from model.vehicle import Vehicle
@@ -29,10 +31,9 @@ class TestDaoBase(unittest.TestCase):
         _, path = tempfile.mkstemp(suffix=".db")
         conn = crear_conexion(path)
         Dao(conn).crear_todas_las_tablas()
-        tablas = [r[0] for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-        ).fetchall()]
-        esperadas = ["users", "vehicles", "gps_devices", "geofences", "telemetry_logs", "cut_engine_commands"]
+        tablas = list_tables(conn)
+        esperadas = ["users", "vehicles", "gps_devices", "geofences",
+                     "telemetry_logs", "cut_engine_commands", "alerts"]
         for t in esperadas:
             self.assertIn(t, tablas, f"Falta tabla: {t}")
         conn.close()

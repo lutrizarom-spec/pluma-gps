@@ -22,7 +22,7 @@ def crear_conexion(db_path: str = None):
     if is_postgres():
         import psycopg2
         conn = psycopg2.connect(_get_postgres_dsn())
-        conn.execute("SET client_encoding TO 'UTF8'")
+        conn.set_client_encoding("UTF8")
         return conn
     path = db_path or os.path.join(os.path.dirname(__file__), DB_NAME)
     conn = sqlite3.connect(path)

@@ -66,10 +66,9 @@ def upgrade():
         sa.Column("acc_ignition", sa.Integer, server_default="0"),
         sa.Column("main_battery", sa.Float),
         sa.Column("backup_battery", sa.Float),
-        sa.Column("rpm", sa.Integer),
-        sa.Column("coolant_temp", sa.Float),
         sa.Column("fuel_level", sa.Float),
-        sa.Column("brake_fluid_alert", sa.Integer, server_default="0"),
+        sa.Column("odometer_km", sa.Float, server_default="0"),
+        sa.Column("dashcam_recording", sa.Integer, server_default="0"),
     )
     op.create_index("ix_telemetry_device_recorded", "telemetry_logs",
                     ["device_id", sa.text("recorded_at DESC")])
@@ -80,6 +79,8 @@ def upgrade():
         sa.Column("device_id", sa.String(36), sa.ForeignKey("gps_devices.device_id"), nullable=False),
         sa.Column("requested_at", sa.String(40), nullable=False),
         sa.Column("status", sa.String(30), nullable=False),
+        sa.Column("doors_locked", sa.Integer, server_default="0"),
+        sa.Column("windows_closed", sa.Integer, server_default="0"),
         sa.Column("executed_at", sa.String(40)),
         sa.Column("speed_at_execution", sa.Float),
     )
