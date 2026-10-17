@@ -21,6 +21,18 @@ class HardwareLevel(Enum):
     LEVEL_3_CANBUS = "LEVEL_3_CANBUS"
 
 
+class ZoneType(Enum):
+    URBANA = "URBANA"
+    CARRETERA = "CARRETERA"
+
+    @property
+    def speed_limit(self) -> int:
+        return {
+            ZoneType.URBANA: 80,
+            ZoneType.CARRETERA: 120,
+        }[self]
+
+
 class CommandStatus(Enum):
     PENDING_SPEED_CHECK = "PENDING_SPEED_CHECK"
     EXECUTED = "EXECUTED"

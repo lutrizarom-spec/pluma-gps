@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 
 class WorkSchedule:
@@ -47,3 +48,71 @@ class WorkSchedule:
 
     def __repr__(self):
         return f"WorkSchedule({self.__vehicle_id}, {self.__start_time}-{self.__end_time})"
+
+
+class VehicleAssignment:
+    """Asigna un vehículo (patente) a un conductor en un rango de vigencia."""
+
+    _OPEN_END = "9999-12-31T23:59:59"
+
+    def __init__(self, vehicle_id: str, user_id: str, start_time: str,
+                 end_time: str = None, is_replacement: bool = False,
+                 authorized_by: str = "", created_at: str = None,
+                 assignment_id: str = None):
+        self.__assignment_id = assignment_id or str(uuid.uuid4())
+        self.__vehicle_id = vehicle_id
+        self.__user_id = user_id
+        self.__start_time = start_time
+        self.__end_time = end_time
+        self.__is_replacement = bool(is_replacement)
+        self.__authorized_by = authorized_by
+        self.__created_at = created_at or datetime.now(timezone.utc).isoformat()
+
+    @property
+    def assignment_id(self) -> str:
+        return self.__assignment_id
+
+    @property
+    def vehicle_id(self) -> str:
+        return self.__vehicle_id
+
+    @property
+    def user_id(self) -> str:
+        return self.__user_id
+
+    @property
+    def start_time(self) -> str:
+        return self.__start_time
+
+    @property
+    def end_time(self) -> str:
+        return self.__end_time
+
+    @property
+    def is_replacement(self) -> bool:
+        return self.__is_replacement
+
+    @property
+    def authorized_by(self) -> str:
+        return self.__authorized_by
+
+    @property
+    def created_at(self) -> str:
+        return self.__created_at
+
+    def is_active(self, moment: str = None) -> bool:
+        """True si el momento (ISO) cae dentro de [start_time, end_time)."""
+        moment = moment or datetime.now(timezone.utc).isoformat()
+        if moment < self.__start_time:
+            return False
+        return self.__end_time is None or moment < self.__end_time
+
+    def overlaps(self, start: str, end: str = None) -> bool:
+        """Detecta solapamiento con otro rango de vigencia."""
+        other_end = end or self._OPEN_END
+        my_end = self.__end_time or self._OPEN_END
+        return self.__start_time < other_end and start < my_end
+
+    def __repr__(self):
+        return (f"VehicleAssignment({self.__vehicle_id} -> {self.__user_id}, "
+                f"{self.__start_time}..{self.__end_time or 'abierto'})")

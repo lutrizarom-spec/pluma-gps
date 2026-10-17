@@ -7,8 +7,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from conectar import is_postgres  # noqa: E402
 from dao.dao import Dao  # noqa: E402
 
-TABLES = ["alerts", "cut_engine_commands", "telemetry_logs",
-          "geofences", "gps_devices", "vehicles", "users"]
+TABLES = ["alerts", "cut_engine_commands", "vehicle_assignments",
+          "telemetry_logs", "geofences", "gps_devices", "vehicles", "users"]
 
 
 def list_tables(conn) -> list:

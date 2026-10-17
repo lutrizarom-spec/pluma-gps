@@ -289,6 +289,7 @@ class TestTelemetryApi(BaseApiTest):
             "license_plate": "ABCD12",
         }, headers=self.auth_headers)
         vid = r2.get_json()["vehicle_id"]
+        self.vehicle_id = vid
         r3 = self.client.post(f"/api/vehicles/{vid}/gps", json={
             "imei": "123456789012345", "is_online": True,
         }, headers=self.auth_headers)
@@ -327,6 +328,97 @@ class TestTelemetryApi(BaseApiTest):
         r = self.client.get(f"/api/telemetry?device_id={self.device_id}", headers=self.auth_headers)
         self.assertEqual(r.status_code, 200)
         self.assertGreaterEqual(len(r.get_json()), 1)
+
+    def test_ingestion_urbana_persiste_zona_y_limite(self):
+        r = self.client.post("/api/telemetry", json={
+            "device_id": self.device_id,
+            "point_wkt": "POINT(1 1)",
+            "speed_kmh": 95.0,
+            "zone_type": "URBANA",
+        }, headers=self.auth_headers)
+        self.assertEqual(r.status_code, 201)
+        row = self.client.get("/api/telemetry", headers=self.auth_headers).get_json()[0]
+        self.assertEqual(row["vehicle_id"], self.vehicle_id)
+        self.assertEqual(row["zone_type"], "URBANA")
+        self.assertEqual(row["speed_limit"], 80)
+
+    def test_ingestion_zone_invalida_400(self):
+        r = self.client.post("/api/telemetry", json={
+            "device_id": self.device_id,
+            "point_wkt": "POINT(1 1)",
+            "speed_kmh": 95.0,
+            "zone_type": "MONTAÑA",
+        }, headers=self.auth_headers)
+        self.assertEqual(r.status_code, 400)
+
+    def test_historial_excesos_urbana(self):
+        self.client.post("/api/telemetry", json={
+            "device_id": self.device_id,
+            "point_wkt": "POINT(1 1)",
+            "speed_kmh": 95.0,
+            "zone_type": "URBANA",
+        }, headers=self.auth_headers)
+        r = self.client.get("/api/telemetry/excesos?license_plate=ABCD12",
+                            headers=self.auth_headers)
+        self.assertEqual(r.status_code, 200)
+        data = r.get_json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["speed_kmh"], 95.0)
+        self.assertEqual(data[0]["speed_limit"], 80)
+        self.assertEqual(data[0]["zone_type"], "URBANA")
+        self.assertEqual(data[0]["vehicle_id"], self.vehicle_id)
+
+    def test_exceso_segun_zona_no_umbral_global(self):
+        """100 km/h no es exceso en carretera (120) pero sí por umbral global 100."""
+        self.client.post("/api/telemetry", json={
+            "device_id": self.device_id,
+            "point_wkt": "POINT(1 1)",
+            "speed_kmh": 100.0,
+            "zone_type": "CARRETERA",
+        }, headers=self.auth_headers)
+        r = self.client.get("/api/telemetry/excesos?license_plate=ABCD12",
+                            headers=self.auth_headers)
+        self.assertEqual(r.get_json(), [])
+
+    def test_historial_excesos_filtro_fechas(self):
+        self.client.post("/api/telemetry", json={
+            "device_id": self.device_id,
+            "point_wkt": "POINT(1 1)",
+            "speed_kmh": 130.0,
+            "zone_type": "CARRETERA",
+        }, headers=self.auth_headers)
+        base = "/api/telemetry/excesos?license_plate=ABCD12"
+        r = self.client.get(f"{base}&desde=2999-01-01T00:00:00",
+                            headers=self.auth_headers)
+        self.assertEqual(r.get_json(), [])
+        r2 = self.client.get(f"{base}&hasta=2000-12-31T23:59:59",
+                             headers=self.auth_headers)
+        self.assertEqual(r2.get_json(), [])
+        r3 = self.client.get(
+            f"{base}&desde=2000-01-01T00:00:00&hasta=2999-01-01T00:00:00",
+            headers=self.auth_headers)
+        self.assertEqual(len(r3.get_json()), 1)
+
+    def test_historial_excesos_patente_case_insensitive(self):
+        self.client.post("/api/telemetry", json={
+            "device_id": self.device_id,
+            "point_wkt": "POINT(1 1)",
+            "speed_kmh": 95.0,
+            "zone_type": "URBANA",
+        }, headers=self.auth_headers)
+        r = self.client.get("/api/telemetry/excesos?license_plate=abcd12",
+                            headers=self.auth_headers)
+        self.assertEqual(len(r.get_json()), 1)
+
+    def test_historial_excesos_patente_inexistente_vacio(self):
+        r = self.client.get("/api/telemetry/excesos?license_plate=ZZZZ99",
+                            headers=self.auth_headers)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get_json(), [])
+
+    def test_historial_excesos_sin_patente_400(self):
+        r = self.client.get("/api/telemetry/excesos", headers=self.auth_headers)
+        self.assertEqual(r.status_code, 400)
 
 
 # ==================== COMMANDS ====================

@@ -34,6 +34,8 @@ class Dao:
         from dao.command_dao import CutEngineCommandDao
 
         from dao.alert_dao import AlertDao
+        from dao.work_schedule_dao import VehicleAssignmentDao
         for cls in [UserDao, VehicleDao, GpsDeviceDao,
-                    GeofenceDao, TelemetryDao, CutEngineCommandDao, AlertDao]:
+                    GeofenceDao, TelemetryDao, CutEngineCommandDao, AlertDao,
+                    VehicleAssignmentDao]:
             cls(self.conexion).crear_tabla()

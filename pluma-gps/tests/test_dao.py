@@ -16,7 +16,7 @@ from dao.command_dao import CutEngineCommandDao
 
 from tests.db_utils import list_tables
 
-from model.enums import PlanSubscription, HardwareLevel, CommandStatus
+from model.enums import PlanSubscription, HardwareLevel, CommandStatus, ZoneType
 from model.user import User
 from model.vehicle import Vehicle
 from model.gps_device import GpsDevice
@@ -216,6 +216,70 @@ class TestTelemetryDao(unittest.TestCase):
         self.t_dao.insertar(t)
         rows = self.t_dao.listar_por_device(self.dev.device_id)
         self.assertEqual(len(rows), 1)
+
+
+class TestTelemetryExcesos(unittest.TestCase):
+
+    def setUp(self):
+        _, self.path = tempfile.mkstemp(suffix=".db")
+        self.conn = crear_conexion(self.path)
+        Dao(self.conn).crear_todas_las_tablas()
+        u_dao = UserDao(self.conn)
+        v_dao = VehicleDao(self.conn)
+        g_dao = GpsDeviceDao(self.conn)
+        self.t_dao = TelemetryDao(self.conn)
+        user = User(rut="12.345.678-5", full_name="Juan", email="j@test.cl")
+        u_dao.insertar(user)
+        self.veh = Vehicle(user_id=user.user_id, license_plate="ABCD12")
+        v_dao.insertar(self.veh)
+        self.dev = GpsDevice(vehicle_id=self.veh.vehicle_id, imei="123456789012345")
+        g_dao.insertar(self.dev)
+
+    def tearDown(self):
+        self.conn.close()
+
+    def test_registrar_lectura_resuelve_vehicle_y_limite(self):
+        t = TelemetryLog(device_id=self.dev.device_id, point_wkt="POINT(1 1)",
+                         speed_kmh=95.0, zone_type=ZoneType.URBANA)
+        self.assertEqual(t.speed_limit, 80)
+        self.t_dao.registrar_lectura(t)
+        self.assertEqual(t.vehicle_id, self.veh.vehicle_id)
+
+    def test_zone_type_string_deriva_limite(self):
+        t = TelemetryLog(device_id=self.dev.device_id, point_wkt="POINT(1 1)",
+                         speed_kmh=130.0, zone_type="carretera")
+        self.assertEqual(t.zone_type, ZoneType.CARRETERA)
+        self.assertEqual(t.speed_limit, 120)
+
+    def test_historial_excesos_filtra_por_patente_y_fechas(self):
+        self.t_dao.registrar_lectura(TelemetryLog(
+            device_id=self.dev.device_id, point_wkt="POINT(1 1)", speed_kmh=95.0,
+            zone_type=ZoneType.URBANA, recorded_at="2026-10-01T10:00:00"))
+        self.t_dao.registrar_lectura(TelemetryLog(
+            device_id=self.dev.device_id, point_wkt="POINT(1 1)", speed_kmh=130.0,
+            zone_type=ZoneType.CARRETERA, recorded_at="2026-10-02T10:00:00"))
+        self.t_dao.registrar_lectura(TelemetryLog(
+            device_id=self.dev.device_id, point_wkt="POINT(1 1)", speed_kmh=50.0,
+            zone_type=ZoneType.URBANA, recorded_at="2026-10-03T10:00:00"))
+        self.assertEqual(len(self.t_dao.historial_excesos("ABCD12")), 2)
+        rango = self.t_dao.historial_excesos(
+            "ABCD12", desde="2026-10-02T00:00:00", hasta="2026-10-02T23:59:59")
+        self.assertEqual(len(rango), 1)
+        self.assertEqual(rango[0][4], 130.0)
+
+    def test_historial_excesos_otra_patente_vacio(self):
+        self.t_dao.registrar_lectura(TelemetryLog(
+            device_id=self.dev.device_id, point_wkt="POINT(1 1)", speed_kmh=95.0,
+            zone_type=ZoneType.URBANA))
+        self.assertEqual(self.t_dao.historial_excesos("ZZZZ99"), [])
+
+    def test_telemetria_independiente_de_cut_engine(self):
+        self.assertEqual(ZoneType.URBANA.speed_limit, 80)
+        self.assertEqual(ZoneType.CARRETERA.speed_limit, 120)
+        self.assertEqual(CutEngineCommand.SAFETY_SPEED_LIMIT, 20.0)
+        # 95 km/h es exceso urbano pero NO es seguro para corte
+        self.assertGreater(95.0, ZoneType.URBANA.speed_limit)
+        self.assertFalse(CutEngineCommand.validate_safety_speed(95.0))
 
 
 class TestCommandDao(unittest.TestCase):

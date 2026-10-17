@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+from model.enums import ZoneType
+
 
 class TelemetryLog:
     def __init__(self, device_id: str, point_wkt: str,
@@ -11,7 +13,10 @@ class TelemetryLog:
                  odometer_km: float = 0.0,
                  dashcam_recording: bool = False,
                  recorded_at: str = None,
-                 telemetry_id: int = None):
+                 telemetry_id: int = None,
+                 vehicle_id: str = None,
+                 zone_type: ZoneType = None,
+                 speed_limit: float = None):
         self.__telemetry_id = telemetry_id
         self.__device_id = device_id
         self.point_wkt = point_wkt  # usa setter
@@ -24,6 +29,11 @@ class TelemetryLog:
         self.__odometer_km = odometer_km
         self.__dashcam_recording = dashcam_recording
         self.__recorded_at = recorded_at or datetime.now(timezone.utc).isoformat()
+        self.__vehicle_id = vehicle_id
+        self.zone_type = zone_type  # usa setter
+        self.__speed_limit = (speed_limit if speed_limit is not None
+                              else (self.__zone_type.speed_limit
+                                    if self.__zone_type else None))
 
     @property
     def telemetry_id(self):
@@ -83,6 +93,33 @@ class TelemetryLog:
     @property
     def recorded_at(self) -> str:
         return self.__recorded_at
+
+    @property
+    def vehicle_id(self) -> str:
+        return self.__vehicle_id
+
+    @vehicle_id.setter
+    def vehicle_id(self, val: str):
+        self.__vehicle_id = val
+
+    @property
+    def zone_type(self):
+        return self.__zone_type
+
+    @zone_type.setter
+    def zone_type(self, valor):
+        if valor is None or isinstance(valor, ZoneType):
+            self.__zone_type = valor
+        else:
+            self.__zone_type = ZoneType(str(valor).strip().upper())
+
+    @property
+    def speed_limit(self):
+        return self.__speed_limit
+
+    def is_exceso(self) -> bool:
+        return (self.__speed_limit is not None
+                and self.__speed_kmh > self.__speed_limit)
 
     def __repr__(self):
         return f"TelemetryLog(device={self.__device_id}, speed={self.__speed_kmh}km/h, odo={self.__odometer_km}km)"

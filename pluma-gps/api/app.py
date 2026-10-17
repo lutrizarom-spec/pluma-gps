@@ -338,6 +338,7 @@ def create_telemetry():
             fuel_level=data.get("fuel_level"),
             odometer_km=data.get("odometer_km", 0.0),
             dashcam_recording=data.get("dashcam_recording", False),
+            zone_type=data.get("zone_type"),
         )
     except ValueError as e:
         conn.close()
@@ -347,13 +348,16 @@ def create_telemetry():
         return jsonify({"error": f"Falta campo: {e}"}), 400
 
     try:
-        tid = daos["telemetry"].insertar(tele)
+        tid = daos["telemetry"].registrar_lectura(tele)
         # Broadcast via WebSocket
         broadcast_telemetry({
             "telemetry_id": tid,
             "device_id": tele.device_id,
+            "vehicle_id": tele.vehicle_id,
             "point_wkt": tele.point_wkt,
             "speed_kmh": tele.speed_kmh,
+            "speed_limit": tele.speed_limit,
+            "zone_type": tele.zone_type.value if tele.zone_type else None,
             "heading": tele.heading,
             "acc_ignition": tele.acc_ignition,
             "odometer_km": tele.odometer_km,
@@ -362,8 +366,9 @@ def create_telemetry():
 
         # --- Alert evaluation ---
         alerts_created = []
-        # Overspeed
-        overspeed_alert = Alert.evaluate_overspeed(tele.device_id, tele.speed_kmh)
+        # Overspeed (límite por zona si se informó, si no el default)
+        overspeed_alert = Alert.evaluate_overspeed(
+            tele.device_id, tele.speed_kmh, limit=tele.speed_limit)
         if overspeed_alert:
             daos["alert"].insertar(overspeed_alert)
             alerts_created.append(overspeed_alert)
@@ -430,7 +435,29 @@ def list_telemetry():
             "fuel_level": r[9],
             "odometer_km": r[10],
             "dashcam_recording": bool(r[11]),
+            "vehicle_id": r[12], "speed_limit": r[13], "zone_type": r[14],
         }
+        for r in rows
+    ])
+
+
+@app.route("/api/telemetry/excesos", methods=["GET"])
+@require_auth
+def historial_excesos():
+    license_plate = request.args.get("license_plate", "").strip()
+    if not license_plate:
+        return jsonify({"error": "license_plate es obligatorio"}), 400
+    desde = request.args.get("desde")
+    hasta = request.args.get("hasta")
+    conn = get_conn()
+    daos = get_daos(conn)
+    rows = daos["telemetry"].historial_excesos(
+        license_plate, desde=desde, hasta=hasta)
+    conn.close()
+    return jsonify([
+        {"telemetry_id": r[0], "device_id": r[1], "vehicle_id": r[2],
+         "recorded_at": r[3], "speed_kmh": r[4], "speed_limit": r[5],
+         "zone_type": r[6], "license_plate": license_plate.upper()}
         for r in rows
     ])
 

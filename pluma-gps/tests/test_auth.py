@@ -170,6 +170,10 @@ class TestProteccionEndpoints(BaseAuthTest):
         r = self.client.get("/api/telemetry")
         self.assertEqual(r.status_code, 401)
 
+    def test_telemetry_excesos_sin_token_401(self):
+        r = self.client.get("/api/telemetry/excesos?license_plate=ABCD12")
+        self.assertEqual(r.status_code, 401)
+
     def test_commands_sin_token_401(self):
         r = self.client.get("/api/commands")
         self.assertEqual(r.status_code, 401)
